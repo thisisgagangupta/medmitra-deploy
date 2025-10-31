@@ -14,11 +14,32 @@ import RecordRTC from "recordrtc";
 const SLICE_MS = 5000;      // used only in "stream" mode
 const TARGET_RATE = 16000;  // STT-friendly (Whisper/4o-transcribe)
 
-// Always prefer env; fall back to FastAPI default (8000)
-const API_BASE_URL = (
+// ----- BEGIN robust API base resolution -----
+const runtimeOverride =
+  // highest priority: window global (you can inject from index.html if needed)
+  (window as any).__API_BASE_URL__ ||
+  // or a querystring override: ?api=https://backend.onrender.com
+  new URLSearchParams(location.search).get("api") ||
+  // or a localStorage override for quick testing
+  localStorage.getItem("API_BASE_URL_OVERRIDE") ||
+  "";
+
+const rawBase =
+  runtimeOverride ||
+  (import.meta as any)?.env?.VITE_API_BASE ||
   (import.meta as any)?.env?.VITE_API_BASE_URL ||
-  "http://127.0.0.1:8000"
-).replace(/\/+$/, ""); // strip trailing slash
+  "";
+
+// only allow localhost fallback when you're truly on localhost
+const API_BASE_URL = (
+  rawBase
+).replace(/\/+$/, "");
+
+console.log("[voice] API_BASE_URL:", API_BASE_URL);
+if (!API_BASE_URL && location.hostname !== "localhost") {
+  console.warn("[voice] Missing API base. Set VITE_API_BASE(_URL) or use ?api= override.");
+}
+// ----- END robust API base resolution -----
 
 
 /** Map UI language to ISO-639-1 hints for the STT endpoint. */
